@@ -13,8 +13,5 @@ def to_bigrams(s):
   while i < len(s):
     u = s[i].lower()
     yield (last, u)
-    if u in PUNC:
-      last = None
-    else:
-      last = u
+    last = u
     i += 1

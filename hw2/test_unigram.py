@@ -46,19 +46,19 @@ def to_unigram_logprob(s):
     return "{:0.4f}".format(s)
 
 with open("train.txt", 'r') as f:
-    # Unigrams
-    l = f.read()
-    for u in to_unigrams(l):
-        unigram_freqs[u] = unigram_freqs.get(u, 0) + 1
-        unigram_count += 1
+    for l in f:
+        # Unigrams
+        for u in to_unigrams(l):
+            unigram_freqs[u] = unigram_freqs.get(u, 0) + 1
+            unigram_count += 1
         
-    # Bigrams
-    for u in to_bigrams(l):
-        w_n1, w_n = u
-        if w_n1 not in bigram_freqs.keys():
-            bigram_freqs[w_n1] = {("count",) : 0}
-        bigram_freqs[w_n1][("count",)] += 1
-        bigram_freqs[w_n1][w_n] = bigram_freqs[w_n1].get(w_n, bigram_created()) + 1
+        # Bigrams
+        for u in to_bigrams(l):
+            w_n1, w_n = u
+            if w_n1 not in bigram_freqs.keys():
+                bigram_freqs[w_n1] = {("count",) : 0}
+            bigram_freqs[w_n1][("count",)] += 1
+            bigram_freqs[w_n1][w_n] = bigram_freqs[w_n1].get(w_n, bigram_created()) + 1
 
 num_unigrams = len(unigram_freqs.keys())
 potential_bigrams = (num_unigrams+1)*num_unigrams
