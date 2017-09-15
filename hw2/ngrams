@@ -5,6 +5,7 @@ from gramify import to_bigrams
 import math
 from pprint import pprint
 import random
+import sys
 
 unigram_freqs = dict()
 unigram_count = 0
@@ -12,6 +13,7 @@ unigram_count = 0
 # Maps w_{n-1} to w_n and ("count")
 bigram_freqs = dict()
 bigrams_seen = 0
+num_unigrams = None
 
 def bigram_created():
     global bigrams_seen
@@ -39,26 +41,14 @@ def to_bigram_logprob(s):
     return "{:0.4f}".format(s)
 
 def bigram_logprob_smoothed(b):
-    if b[0] is None:
+    if b[0] == None:
         den = bigram_freqs[None][("count",)]
     else:
-        den = bigram_freqs[b[0]][("count",)]
-    den += potential_bigrams
-    if (b[0] not in bigram_freqs.keys() and
-        b[1] not in bigram_freqs.keys()):
-        num = 1
-    elif (b[0] in bigram_freqs.keys() and
-          b[1] not in bigram_freqs.keys()):
-        num = bigram_freqs[b[0]].get(b[1],0) + 1
-    elif(b[0] in bigram_freqs.keys() and
-         b[1] in bigram_freqs.keys()):
-        num = bigram_freqs[b[0]].get(b[1],0) + bigram_freqs[b[1]].get(b[0],0) + 1
-    elif(b[0] not in bigram_freqs.keys() and
-         b[1] in bigram_freqs.keys()):
-        num = bigram_freqs[b[1]].get(b[0],0) + 1
-        pass
-    else:
-        assert(0)
+        den = unigram_freqs[b[0]]
+    den += num_unigrams + 1
+    num = 1
+    if (b[0] in bigram_freqs.keys()):
+        num += bigram_freqs[b[0]].get(b[1],0)
     return math.log(num/den, 2)
         
 def to_bigram_logprob_smoothed(s):
@@ -98,7 +88,16 @@ def gen_words(seed):
             last_seed = w
         yield " ".join(generated[1:])
 
-with open("train.txt", 'r') as f:
+if len(sys.argv) != 4 or sys.argv[2] not in ("-test", "-gen"):
+    print('''Usage:
+  {} <training file> -test <test file>
+or
+  {} <training file> -gen <seed file>''')
+    sys.exit(0)
+
+train = sys.argv[1]
+
+with open(train, 'r') as f:
     for l in f:
         # Unigrams
         for u in to_unigrams(l):
@@ -115,10 +114,11 @@ with open("train.txt", 'r') as f:
 
 num_unigrams = len(unigram_freqs.keys())
 potential_bigrams = (num_unigrams+1)*num_unigrams
-with open("test.txt") as f:
-    for s in f:
-        s = s.strip()
-        print('''S = {}
+if sys.argv[2] == "-test":
+    with open(sys.argv[3], 'r') as f:
+        for s in f:
+            s = s.strip()
+            print('''S = {}
 
 Unsmoothed Unigrams, logprob(S) = {}
 Unsmoothed Bigrams, logprob(S) = {}
@@ -127,14 +127,14 @@ Smoothed Bigrams, logprob(S) = {}
            to_unigram_logprob(s),
            to_bigram_logprob(s),
            to_bigram_logprob_smoothed(s)))
-
-with open("seeds.txt",'r') as f:
-    for l in f:
-        l = l.strip()
-        print("Seed = {}\n".format(l))
-        i = 1
-        for s in gen_words(l.lower()):
-              print("Sentence {}: {} {}".format(i, l, s))
-              i += 1
-        print()
+else:
+    with open(sys.argv[3],'r') as f:
+        for l in f:
+            l = l.strip()
+            print("Seed = {}\n".format(l))
+            i = 1
+            for s in gen_words(l.lower()):
+                print("Sentence {}: {} {}".format(i, l, s))
+                i += 1
+            print()
                     
