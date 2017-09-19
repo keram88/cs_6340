@@ -1,4 +1,4 @@
-#! /usr/bin/env python3.6
+#! /usr/bin/env python3
 import sys
 import math
 
@@ -7,20 +7,20 @@ def log2(x):
 
 NF = .0001
 
-posts = ('noun', 'verb', 'inf', 'prep', 'phi')
+posts = ('noun', 'verb', 'inf', 'prep')
 
 post_nums = {posts[i] : i for i in range(len(posts))}
 
-PHI = post_nums['phi']
+PHI = "phi"
 
 nums_post = dict()
 
 for k,v in post_nums.items():
     nums_post[v] = k
 
-num_posts = len(post_nums.keys())
+nums_post[None] = "None"
 
-print(posts, post_nums, nums_post)
+num_posts = len(post_nums.keys())
 
 probs = dict()
 
@@ -37,12 +37,13 @@ with open(args[1], 'r') as f:
             probs[y][x] = p
         else:
             probs[y] = {x : p}
-print(probs)
 
 def emission_prob(w, t):
     return probs[nums_post[t]].get(w, NF)
 
 def transition_prob(t2, t1):
+    if t1 == PHI:
+        return probs[PHI].get(nums_post[t2],NF)
     return probs[nums_post[t1]].get(nums_post[t2], NF)
 
 def make_viterbi(s):
@@ -50,10 +51,56 @@ def make_viterbi(s):
     s = list(map(lambda x: x.lower(), s))
     v = [[None for x in s] for i in range(num_posts)]
     for i in range(num_posts):
-        v[i][0] = [(log2(emission_prob(s[0], i)) +
-                    log2(transition_prob(i, PHI))), None]
+        ep = emission_prob(s[0],i)
+        tp = transition_prob(i,PHI)
+        v[i][0] = [log2(ep) + log2(tp), ep*tp, None]
+    for i in range(1,len(s)):
+        for t in range(num_posts):
+            best = None
+            back = None
+            seq_sum = 0
+            seq_p = emission_prob(s[i],t)
+            for k in range(num_posts):
+                seq_sum += v[k][i-1][1]*transition_prob(t,k)
+                sc = v[k][i-1][0] + log2(transition_prob(t,k))
+                if best is None or sc > best:
+                    best, back = sc, k
+            v[t][i] = [log2(emission_prob(s[i], t)) + best, seq_p*seq_sum, back]
+                    
     return v
 
 from pprint import pprint
+sent = "mark likes to fish for fish"
+v = make_viterbi(sent)
 
-pprint(make_viterbi("bears fish"))
+print("PROCESSING SENTENCE: "+sent)
+print()
+print("FINAL VITERBI NETWORK")
+sent_s = sent.strip().split()
+for i in range(len(sent_s)):
+    for t in range(num_posts):
+        print("P({}={}) = {:0.4f}".format(sent_s[i], nums_post[t], v[t][i][0]))
+
+print()
+print("FINAL BACKPTR NETWORK")
+for i in range(1,len(sent_s)):
+    for t in range(num_posts):
+        print("Backptr({}={}) = {}".format(sent_s[i], nums_post[t], nums_post[v[t][i][2]]))
+
+#Find best tag sequence
+best_p = None
+best_t = None
+for t in range(num_posts):
+    p = v[t][-1][0]
+    if best_t is None or p > best_p:
+        best_p, best_t = p, t
+    
+print()
+print()
+print("BEST TAG SEQUENCE HAS LOG PROBABILITY = {:0.4f}".format(best_p))
+
+
+curr_t = best_t
+for i in range(len(sent_s)-1, -1, -1):
+    print("{} -> {}".format(sent_s[i], nums_post[curr_t]))
+    curr_t = v[curr_t][i][2]
