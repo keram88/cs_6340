@@ -66,41 +66,53 @@ def make_viterbi(s):
                 if best is None or sc > best:
                     best, back = sc, k
             v[t][i] = [log2(emission_prob(s[i], t)) + best, seq_p*seq_sum, back]
-                    
+    # Normalize forward probs
+    for i in range(len(s)):
+        total = 0
+        for t in range(num_posts):
+            total += v[t][i][1]
+        for t in range(num_posts):
+            v[t][i][1] /= total
     return v
 
 from pprint import pprint
-sent = "mark likes to fish for fish"
-v = make_viterbi(sent)
+with open(args[2], 'r') as f:
+    for sent in f:
+        v = make_viterbi(sent)
+        
+        print("PROCESSING SENTENCE: "+sent.strip())
+        print()
+        print("FINAL VITERBI NETWORK")
+        sent_s = sent.strip().split()
+        for i in range(len(sent_s)):
+            for t in range(num_posts):
+                print("P({}={}) = {:0.4f}".format(sent_s[i], nums_post[t], v[t][i][0]))
 
-print("PROCESSING SENTENCE: "+sent)
-print()
-print("FINAL VITERBI NETWORK")
-sent_s = sent.strip().split()
-for i in range(len(sent_s)):
-    for t in range(num_posts):
-        print("P({}={}) = {:0.4f}".format(sent_s[i], nums_post[t], v[t][i][0]))
+        print()
+        print("FINAL BACKPTR NETWORK")
+        for i in range(1,len(sent_s)):
+            for t in range(num_posts):
+                print("Backptr({}={}) = {}".format(sent_s[i], nums_post[t], nums_post[v[t][i][2]]))
 
-print()
-print("FINAL BACKPTR NETWORK")
-for i in range(1,len(sent_s)):
-    for t in range(num_posts):
-        print("Backptr({}={}) = {}".format(sent_s[i], nums_post[t], nums_post[v[t][i][2]]))
-
-#Find best tag sequence
-best_p = None
-best_t = None
-for t in range(num_posts):
-    p = v[t][-1][0]
-    if best_t is None or p > best_p:
-        best_p, best_t = p, t
+        #Find best tag sequence
+        best_p = None
+        best_t = None
+        for t in range(num_posts):
+            p = v[t][-1][0]
+            if best_t is None or p > best_p:
+                best_p, best_t = p, t
     
-print()
-print()
-print("BEST TAG SEQUENCE HAS LOG PROBABILITY = {:0.4f}".format(best_p))
-
-
-curr_t = best_t
-for i in range(len(sent_s)-1, -1, -1):
-    print("{} -> {}".format(sent_s[i], nums_post[curr_t]))
-    curr_t = v[curr_t][i][2]
+        print()
+        print("BEST TAG SEQUENCE HAS LOG PROBABILITY = {:0.4f}".format(best_p))
+    
+        curr_t = best_t
+        for i in range(len(sent_s)-1, -1, -1):
+            print("{} -> {}".format(sent_s[i], nums_post[curr_t]))
+            curr_t = v[curr_t][i][2]
+        print()
+        print("FORWARD ALGORITHM RESULTS")
+        for i in range(len(sent_s)):
+            for t in range(num_posts):
+                print("P({}={}) = {:0.4f}".format(sent_s[i], nums_post[t], v[t][i][1]))
+        print()
+        print()
