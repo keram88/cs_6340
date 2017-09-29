@@ -17,7 +17,7 @@
 \large
 \begin{center}
 {\bf CS-5340/6340, Written Assignment \#2} \\
-{\bf DUE: Friday, September 29, 2017 by 11:00pm}
+Marek Baranowski
 \end{center}
 \normalsize
 
@@ -237,7 +237,22 @@ Each classifier will be tested on the 150 documents not used for training.\\
 \item Suppose you have an extremely small amount of annotated data. 
   Would it be better to use a relatively small number of folds for
   cross-validation or a relatively large number of folds? Briefly explain your
-  answer.
+  answer.\\ ~ \\ 
+Using the numbers in the problem as an example, a larger fold count
+(8) would be preferable to smaller fold count (3), assuming both
+choices could be used to train classifiers with similar
+accuracies. When using a larger fold count, in this scenario, we can
+get a better sense of the variance of the mean test-accuracy due to
+having more samples of model accuracies.  Considering the estimation
+of how well the model generalizes is not appreciably better between
+the two choices, since the probability of having a given accuracy on a
+400 sample test is not appreciably better than getting the same
+accuracy on a 150 sample test, especially as the number of labels
+increases. Also, when using a larger fold fold count, we are more
+likely to be training the models on a representative training set,
+expecially when we have uncommon labels. Taken together it seems
+preferable to use a classifier trained on many models that has been
+tested ``more'' than than one trained of fewer models.
 
 \end{enumerate}
 
