@@ -3,8 +3,8 @@
 from functools import reduce
 import sys
 
-WORD_DICT = set()
-POS_DICT  = set()
+WORDS = set()
+POSS  = set()
 LOCS = set()
 
 PUNC = {".", "!", "?"}
@@ -79,7 +79,16 @@ def process_args():
     return opt
 
 def preprocess(input, opt):
-    pass
+    with open(input, 'r') as f:
+        for l in f:
+            l = l.strip()
+            if len(l) == 0:
+                continue
+            l = l.split()
+            assert(len(l) == 3)
+            bio, pos, w = l[0], l[1], l[2]
+            POSS.add(pos)
+            WORDS.add(w)
 
 def produce_vecs(input, opt, unk):
     pass
@@ -87,15 +96,62 @@ def produce_vecs(input, opt, unk):
 def read_locs(opt):
     with open(opt.locs, 'r') as f:
         for loc in f:
-            LOCS.add(loc)
-        
+            LOCS.add(loc.strip())
 
+def yes_no(b):
+    if b:
+        return "yes"
+    return "no"
+            
+def produce_readable(input, opt, unk):
+    with open(input, 'r') as f:
+        iters = 0
+        word_cons = [None, None]
+        pos_cons = [None, None]
+        eos = False
+        for l in f:
+            l = l.strip()
+            l = l.split()
+            if len(l) == 0:
+                iters = 0
+                if not eos:
+                    print(
+'''WORD: {}
+WORDCON: {} {}
+POS: {}
+POSCON: {} {}
+ABBR: {}
+CAP: {}
+LOCATION: {}\n'''.format(word_cons[0], word_cons[1], "OMEGA", pos_cons[0], pos_cons[1], "OMEGAPOS",
+                       yes_no(is_abbr(word_cons[0])), yes_no(is_cap(word_cons[0])), yes_no(is_loc(word_cons[0]))))
+                    eos = True
+                continue
+            assert(len(l) == 3)
+            bio, pos, w = l[0], l[1], l[2]
+            if iters == 0:
+                word_cons[0] = "PHI"
+                pos_cons[0] = "PHIPOS"
+#            print(word_cons, pos_cons, w, pos)
+            if iters > 0:
+                print(
+'''WORD: {}
+WORDCON: {} {}
+POS: {}
+POSCON: {} {}
+ABBR: {}
+CAP: {}
+LOCATION: {}\n'''.format(word_cons[0], word_cons[1], w, pos_cons[0], pos_cons[1], pos,
+                       yes_no(is_abbr(word_cons[0])), yes_no(is_cap(word_cons[0])), yes_no(is_loc(word_cons[0]))))
+            iters += 1
+            word_cons[1], pos_cons[1] = word_cons[0], pos_cons[0]
+            word_cons[0], pos_cons[0] = w, pos
+            eos = False
+            
 def run_ner():
     opt = process_args()
     read_locs(opt)
     preprocess(opt.train, opt)
     produce_vecs(opt.train, opt, False)
-    
+    produce_readable(opt.train, opt, False)
 if __name__ == '__main__':
     run_ner()
-    print(LOCS)
