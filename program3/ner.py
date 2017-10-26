@@ -31,6 +31,19 @@ LOWER = {chr(x) for x in range(ord('a'), ord('z')+1)}
 UPPER = {chr(x) for x in range(ord('A'), ord('Z')+1)}
 LETS = LOWER|UPPER
 
+def to_feature_idx(dic, word_list, word, start_idx):
+    if word in dic.keys():
+        return dic[word] + start_idx
+    try:
+        idx = word_list.index(word)
+    except:
+        if type(word) != str:
+            pass # special
+        else:
+            idx = len(word_list) + 1 # Unknown
+    dic[word] = idx
+    return idx + start_idx
+
 class options:
     def __init__(self):
         self.train = None
@@ -90,20 +103,40 @@ def preprocess(input, opt):
             POSS.add(pos)
             WORDS.add(w)
 
-def produce_vecs(input, opt, unk):
-    pass
+def parse_file(input):
+    with open(input, 'r') as f:
+        iters = 0
+        word_cons = [None, None]
+        pos_cons = [None, None]
+        eos = False
+        for l in f:
+            l = l.strip)(
+            l = l.split()
+            if len(l) == 0:
+                iters = 0
+                if not eos:
+                    yield (word_cons[0], word_cons[1], "OMEGA",
+                           pos_cons[0], pos_cons[1], "OMEGAPOS",
+                           is_abbr(word_cons[0]), is_cap(word_cons[0]), is_loc(word_cons[0]))
+                    eos = True
+                continue
+            assert(len(l) == 3)
+            bio, pos, w = l[0], l[1], l[2]
+            if iters == 0:
+                word_cons[0] = "PHI"
+                pos_cons[0] = "PHIPOS"
+            #print(word_cons, pos_cons, w, pos)
+            if iters > 0:
+                yield (word_cons[0], word_cons[1], w,
+                       pos_cons[0], pos_cons[1], pos,
+                       is_abbr(word_cons[0]), is_cap(word_cons[0]), is_loc(word_cons[0]))
+            iters += 1
+            word_cons[1], pos_cons[1] = word_cons[0], pos_cons[0]
+            word_cons[0], pos_cons[0] = w, pos
+            eos = False
 
-def read_locs(opt):
-    with open(opt.locs, 'r') as f:
-        for loc in f:
-            LOCS.add(loc.strip())
-
-def yes_no(b):
-    if b:
-        return "yes"
-    return "no"
             
-def produce_readable(input, opt, unk):
+def produce_vecs(input, opt, word_list, word_dict, pos_list, pos_dict, unk):
     with open(input, 'r') as f:
         iters = 0
         word_cons = [None, None]
@@ -116,13 +149,13 @@ def produce_readable(input, opt, unk):
                 iters = 0
                 if not eos:
                     print(
-'''WORD: {}
+'''WORD: {}:1
 WORDCON: {} {}
 POS: {}
 POSCON: {} {}
 ABBR: {}
 CAP: {}
-LOCATION: {}\n'''.format(word_cons[0], word_cons[1], "OMEGA", pos_cons[0], pos_cons[1], "OMEGAPOS",
+LOCATION: {}\n'''.format(to_feature_idx(word_dict, word_list, word_cons[0], 1), word_cons[1], "OMEGA", pos_cons[0], pos_cons[1], "OMEGAPOS",
                        yes_no(is_abbr(word_cons[0])), yes_no(is_cap(word_cons[0])), yes_no(is_loc(word_cons[0]))))
                     eos = True
                 continue
@@ -131,27 +164,60 @@ LOCATION: {}\n'''.format(word_cons[0], word_cons[1], "OMEGA", pos_cons[0], pos_c
             if iters == 0:
                 word_cons[0] = "PHI"
                 pos_cons[0] = "PHIPOS"
-#            print(word_cons, pos_cons, w, pos)
+            print(word_cons, pos_cons, w, pos)
             if iters > 0:
                 print(
-'''WORD: {}
+'''WORD: {}:1
 WORDCON: {} {}
 POS: {}
 POSCON: {} {}
 ABBR: {}
 CAP: {}
-LOCATION: {}\n'''.format(word_cons[0], word_cons[1], w, pos_cons[0], pos_cons[1], pos,
+LOCATION: {}\n'''.format(to_feature_idx(word_dict, word_list, word_cons[0], 1), word_cons[1], w, pos_cons[0], pos_cons[1], pos,
                        yes_no(is_abbr(word_cons[0])), yes_no(is_cap(word_cons[0])), yes_no(is_loc(word_cons[0]))))
             iters += 1
             word_cons[1], pos_cons[1] = word_cons[0], pos_cons[0]
             word_cons[0], pos_cons[0] = w, pos
             eos = False
+
+def read_locs(opt):
+    with open(opt.locs, 'r') as f:
+        for loc in f:
+            LOCS.add(loc.strip())
+
+def yes_no(b):
+    if b:
+        return "yes"
+    return "no"
+            
+def produce_readable(input, opt, unk):
+    na = lambda x,y: (x if y else "n/a")
+    for i in parse_file(input):
+        w, w_next, w_prev, pos, pos_next, pos_prev, abbr, cap, loc = i
+        print(
+'''WORD: {}
+WORDCON: {}
+POS: {}
+POSCON: {}
+ABBR: {}
+CAP: {}
+LOCATION: {}\n'''.format(na(w, opt.word), na(w_next+" "+w_prev, opt.wordcon),
+                         na(pos, opt.pos), na(pos_next+" "+pos_prev, opt.poscon),
+                         na(yes_no(abbr), opt.abbr),
+                         na(yes_no(cap), opt.cap),
+                         na(yes_no(loc), opt.location)))
             
 def run_ner():
     opt = process_args()
     read_locs(opt)
     preprocess(opt.train, opt)
-    produce_vecs(opt.train, opt, False)
+    word_list = list(WORDS)
+    pos_list = list(POSS)
+    word_dict = dict()
+    pos_dict = dict()
     produce_readable(opt.train, opt, False)
+    #produce_vecs(opt.train, opt, word_list, word_dict, pos_list, pos_dict, False)
+    
+    
 if __name__ == '__main__':
     run_ner()
