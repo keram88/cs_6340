@@ -37,10 +37,13 @@ def to_feature_idx(dic, word_list, word, start_idx):
     try:
         idx = word_list.index(word)
     except:
-        if type(word) != str:
-            pass # special
+        if (word == "PHI" or word == "PHIPOS" or
+            word == "OMEGA" or word == "OMEGAPOS"):
+            idx = len(word_list) + 1
+        elif word == "UNK" or word == "UNKPOS":
+            idx = len(word_list) + 2 # Unknown
         else:
-            idx = len(word_list) + 1 # Unknown
+            assert(False and ("Unknown word: " + word))
     dic[word] = idx
     return idx + start_idx
 
@@ -104,6 +107,8 @@ def preprocess(input, opt):
             WORDS.add(w)
 
 def parse_file(input):
+    fst = lambda x: x[0] if type(x) != str else x
+    snd = lambda x: x[1] if type(x) != str else x
     with open(input, 'r') as f:
         iters = 0
         word_cons = [None, None]
@@ -116,31 +121,41 @@ def parse_file(input):
             if len(l) == 0:
                 iters = 0
                 if not eos:
-                    yield (word_cons[0], word_cons[1], "OMEGA",
-                           pos_cons[0], pos_cons[1], "OMEGAPOS",
-                           is_abbr(word_cons[0]), is_cap(word_cons[0]), is_loc(word_cons[0]), bio)
+                    yield (fst(word_cons[0]), fst(word_cons[1]), "OMEGA",
+                           fst(pos_cons[0]), fst(pos_cons[1]), "OMEGAPOS",
+                           is_abbr(snd(word_cons[0])),
+                           is_cap(snd(word_cons[0])),
+                           is_loc(snd(word_cons[0])), bio)
                     eos = True
                 continue
             assert(len(l) == 3)
             nbio, pos, w = l[0], l[1], l[2]
             if w not in WORDS:
-                w = "UNK"
+                w = ("UNK", w)
             if pos not in POSS:
-                pos = "UNKPOS"
+                pos = ("UNKPOS", pos)
             if iters == 0:
                 word_cons[0] = "PHI"
                 pos_cons[0] = "PHIPOS"
             #print(word_cons, pos_cons, w, pos)
             if iters > 0:
-                yield (word_cons[0], word_cons[1], w,
-                       pos_cons[0], pos_cons[1], pos,
-                       is_abbr(word_cons[0]), is_cap(word_cons[0]), is_loc(word_cons[0]), bio)
+                yield (fst(word_cons[0]), fst(word_cons[1]), fst(w),
+                       fst(pos_cons[0]), fst(pos_cons[1]), fst(pos),
+                       is_abbr(snd(word_cons[0])), is_cap(snd(word_cons[0])),
+                       is_loc(snd(word_cons[0])), bio)
             bio = nbio
             iters += 1
             word_cons[1], pos_cons[1] = word_cons[0], pos_cons[0]
             word_cons[0], pos_cons[0] = w, pos
             eos = False
-
+        if not eos:
+            yield (fst(word_cons[0]), fst(word_cons[1]), "OMEGA",
+                   fst(pos_cons[0]), fst(pos_cons[1]), "OMEGAPOS",
+                   is_abbr(snd(word_cons[0])),
+                   is_cap(snd(word_cons[0])),
+                   is_loc(snd(word_cons[0])), bio)
+            
+            
 # to_feature_idx(dic, word_list, word, start_idx):
 def produce_vecs(input, opt, word_list, word_dict, pos_list, pos_dict, fout):
     for i in parse_file(input):
@@ -163,7 +178,8 @@ def produce_vecs(input, opt, word_list, word_dict, pos_list, pos_dict, fout):
         if opt.locs and loc:
             result.append(opt.loc_idx)
 #        print(i)
-        print(str(labelings[lab]) + " " + " ".join(list(map(lambda x: str(x) + ":1", sorted(result)))))
+        print(str(labelings[lab]) + " " + " ".join(list(map(lambda x: str(x) + ":1", sorted(result)))),
+              file=fout)
             
 
 def read_locs(opt):
@@ -212,9 +228,15 @@ def run_ner():
     opt.cap_idx = opt.abbr_idx + 2
     opt.loc_idx = opt.cap_idx + 2
     
-    
-    #produce_readable(opt.train, opt, sys.stdout)
-    produce_vecs(opt.train, opt, word_list, word_dict, pos_list, pos_dict, sys.stdout)
+    with open(opt.train+".readable", 'w') as train_readable:
+        produce_readable(opt.train, opt, train_readable)
+    with open(opt.train+".vector", 'w') as train_vector:
+        produce_vecs(opt.train, opt, word_list, word_dict, pos_list, pos_dict, train_vector)
+
+    with open(opt.test+".readable", 'w') as test_readable:
+        produce_readable(opt.test, opt, test_readable)
+    with open(opt.test+".vector", 'w') as test_vector:
+        produce_vecs(opt.test, opt, word_list, word_dict, pos_list, pos_dict, test_vector)
     
     
 if __name__ == '__main__':
